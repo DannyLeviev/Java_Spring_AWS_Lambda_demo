@@ -1,0 +1,102 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Java_Spring_AWS_Lambda_demo - serverless insurance agreements API
+
+Globals:
+  Function:
+    Runtime: java21
+    Architectures: [arm64]        # ~20% cheaper than x86, pure Java runs unchanged
+    MemorySize: 2048              # Lambda CPU scales with memory -> faster Spring init
+    Timeout: 30
+    Tags:
+      project: java-spring-aws-lambda-demo
+
+Resources:
+
+  # ---------- Data ----------
+  AgreementsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete         # demo only: table is removed with the stack
+    UpdateReplacePolicy: Delete
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      Tags:
+        - Key: project
+          Value: java-spring-aws-lambda-demo
+
+  # ---------- API ----------
+  AgreementsApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      DefaultRouteSettings:        # cost guardrail for an unauthenticated public API
+        ThrottlingBurstLimit: 10
+        ThrottlingRateLimit: 5
+      Tags:
+        project: java-spring-aws-lambda-demo
+
+  # ---------- Compute ----------
+  AgreementsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: Java_Spring_AWS_Lambda_demo
+      Description: Agreements CRUD API (Spring Boot 4 on Lambda)
+      Handler: com.dannyleviev.lambdademo.StreamLambdaHandler::handleRequest
+      CodeUri: target/java-spring-aws-lambda-demo-lambda-package.zip
+      AutoPublishAlias: live        # publishes a version per deploy; required for SnapStart
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref AgreementsTable
+      Policies:
+        - DynamoDBCrudPolicy:       # least privilege: CRUD on this one table only
+            TableName: !Ref AgreementsTable
+      Events:
+        CreateAgreement:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AgreementsApi
+            Path: /agreements
+            Method: POST
+        GetAgreement:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AgreementsApi
+            Path: "/agreements/{id}"
+            Method: GET
+        ListAgreements:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AgreementsApi
+            Path: /agreements
+            Method: GET
+        DeleteAgreement:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AgreementsApi
+            Path: "/agreements/{id}"
+            Method: DELETE
+
+  AgreementsFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    Properties:
+      LogGroupName: /aws/lambda/Java_Spring_AWS_Lambda_demo
+      RetentionInDays: 7
+
+Outputs:
+  ApiUrl:
+    Description: Base URL of the agreements API
+    Value: !Sub "https://${AgreementsApi}.execute-api.${AWS::Region}.amazonaws.com"
+  TableName:
+    Description: DynamoDB table name
+    Value: !Ref AgreementsTable
+  FunctionName:
+    Description: Lambda function name
+    Value: !Ref AgreementsFunction

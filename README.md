@@ -15,7 +15,7 @@ A serverless REST API for managing **insurance agreements**, built with **Java 2
 | Spring Boot 4 project + Lambda packaging (zip) | ✅ Done |
 | Agreements API (controller, service, DynamoDB repository, error handling) | ✅ Done |
 | Unit tests (service + controller) | ✅ Done |
-| Infrastructure as code (`template.yaml`, AWS SAM) | ⏳ Next |
+| Infrastructure as code (`template.yaml`, AWS SAM) | ✅ Done |
 | CI/CD (GitHub Actions + AWS OIDC, deploy on push to `main`) | ⏳ Planned |
 
 ---
