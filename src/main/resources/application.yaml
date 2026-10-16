@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: Java_Spring_AWS_Lambda_demo
+  main:
+    banner-mode: off
+app:
+  dynamodb:
+    table-name: ${TABLE_NAME:agreements-local}
