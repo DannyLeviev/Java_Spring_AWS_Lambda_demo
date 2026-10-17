@@ -1,0 +1,90 @@
+name: ci-cd
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'            # docs-only commits don't trigger a deploy
+  pull_request:
+    branches: [main]
+  workflow_dispatch:       # manual "Run workflow" button in the Actions tab
+
+permissions:
+  id-token: write          # required to request the OIDC token
+  contents: read
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: false   # never interrupt a running CloudFormation deploy
+
+env:
+  STACK_NAME: java-spring-aws-lambda-demo
+  PACKAGE: target/java-spring-aws-lambda-demo-lambda-package.zip
+
+jobs:
+  build:
+    name: Build, test, package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: corretto
+          java-version: '21'
+          cache: maven
+
+      - name: Maven verify
+        run: ./mvnw -B -ntp clean verify
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: lambda-package
+          path: ${{ env.PACKAGE }}
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    name: Deploy to AWS
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6          # needed for template.yaml
+
+      - uses: actions/download-artifact@v6
+        with:
+          name: lambda-package
+          path: target
+
+      - uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: gha-${{ github.run_id }}
+
+      - name: Who am I (sanity check)
+        run: aws sts get-caller-identity
+
+      - name: SAM deploy
+        run: |
+          sam deploy \
+            --template-file template.yaml \
+            --stack-name "$STACK_NAME" \
+            --capabilities CAPABILITY_IAM \
+            --resolve-s3 \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset
+
+      - name: Smoke test
+        run: |
+          API_URL=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" --output text)
+          echo "API_URL=$API_URL"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --retry 3 --retry-delay 5 "$API_URL/agreements")
+          echo "GET /agreements -> $STATUS"
+          test "$STATUS" = "200"
