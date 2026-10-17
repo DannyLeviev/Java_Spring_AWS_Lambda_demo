@@ -54,6 +54,7 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref AgreementsTable
+          LOGGING_LEVEL_COM_DANNYLEVIEV_LAMBDADEMO: DEBUG
       Policies:
         - DynamoDBCrudPolicy:       # least privilege: CRUD on this one table only
             TableName: !Ref AgreementsTable

@@ -2,9 +2,9 @@
 
 A serverless REST API for managing **insurance agreements**, built with **Java 21** and **Spring Boot 4**, running on **AWS Lambda** behind **API Gateway (HTTP API)**, persisting to **Amazon DynamoDB**, and deployed with **AWS SAM** from **GitHub Actions** on every push to `main`.
 
-<!-- Uncomment once .github/workflows/ci-cd.yml is in place:
+
 ![CI/CD](https://github.com/DannyLeviev/Java_Spring_AWS_Lambda_demo/actions/workflows/ci-cd.yml/badge.svg)
--->
+
 
 ---
 
