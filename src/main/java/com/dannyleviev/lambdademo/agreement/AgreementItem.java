@@ -19,13 +19,13 @@ import java.time.LocalDate;
 @NoArgsConstructor
 public class AgreementItem {
 
-    // The SDK reads mapping annotations from getters, so put the key annotation on the generated getter
+
     @Getter(onMethod_ = @DynamoDbPartitionKey)
     private String id;
 
     private String policyNumber;
     private String holderName;
-    private String productType;     // stored as String: explicit and migration-friendly
+    private String productType;
     private BigDecimal monthlyPremium;
     private LocalDate startDate;
     private LocalDate endDate;
